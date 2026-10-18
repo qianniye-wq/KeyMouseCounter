@@ -169,6 +169,29 @@ $env:DOTNET_ROOT = 'D:\dotnet8'; $env:PATH = "D:\dotnet8;$env:PATH"
   （`Program.cs` 的 `UiThreadStackBytes`）以提高余量，并用多轮启停压测验证。若仍遇到，计划任务
   （`RestartCount=3`，1 分钟间隔）会自动把程序拉起来，最多丢该时段未刷盘数据（≤30 s）。
 
+### 7.1 崩溃 / 无响应时去哪找「错误报告」
+
+程序**自己只记托管异常**（`logs\app-*.log`）；native 崩溃（栈溢出/访问违例）和「无响应」不会写这个日志，
+但 **Windows 一定会留系统级报告**，排查时按下面三处取：
+
+```powershell
+# ① 事件查看器：Application Error 1000（崩溃，含错误模块与异常码）/ Hang 1002（无响应）
+Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1002} -MaxEvents 30 |
+  Where-Object Message -match 'KeyMouseCounter' | Format-List TimeCreated,Id,Message
+
+# ② 崩溃转储：Win10/11 默认由 WER 写到 LocalDumps（只有「崩溃」有，「卡死」没有）
+Get-ChildItem "$env:LOCALAPPDATA\CrashDumps\KeyMouseCounter*.dmp" | Sort-Object LastWriteTime -Descending
+
+# ③ 程序日志：启动/刷盘/钩子自愈等事件，托管异常会记 ERROR（含堆栈）
+Get-Content "$env:LOCALAPPDATA\KeyMouseCounter\logs\app-$(Get-Date -f yyyyMMdd).log" -Tail 50
+```
+
+- ① 是**每次都有**的权威记录：`错误模块名称` + `异常代码` + `错误偏移量` 就能判断崩在谁身上；
+- ② 需要分析工具（WinDbg / `dotnet-dump`），体积几 MB～十几 MB，可压缩后发给开发排查；
+- 「无响应（Hang 1002）」通常**不产生** dump，只有事件记录；
+- 崩溃前最多丢失 **30 s**（一次刷盘间隔）的未落盘分钟数据，日志与库在重启时会对账补齐更早的部分。
+
+
 ---
 
 ## 8. 目录结构
