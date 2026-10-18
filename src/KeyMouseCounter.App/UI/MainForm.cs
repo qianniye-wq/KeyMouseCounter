@@ -108,6 +108,8 @@ internal sealed class MainForm : Form
         SuspendLayout();
         AutoScaleMode = AutoScaleMode.Dpi;
         Text = "KeyMouseCounter";
+        // WinForms 默认用系统通用图标，不会自动继承 exe 图标；显式设成 app.ico，标题栏/任务栏才与 exe 一致。
+        Icon = AppIcon.Create();
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(820, 560);
         ClientSize = new Size(Math.Max(820, _cfg.Ui.LastMainWindowSize?[0] ?? 1000),

@@ -25,6 +25,7 @@ internal sealed class ExportDialog : Form
         _query = query;
 
         Text = "导出 CSV";
+        Icon = AppIcon.Create();
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

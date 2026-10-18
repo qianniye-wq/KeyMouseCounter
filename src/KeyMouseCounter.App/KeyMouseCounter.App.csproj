@@ -9,6 +9,7 @@
     <RootNamespace>KeyMouseCounter</RootNamespace>
     <AssemblyName>KeyMouseCounter</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <Platforms>AnyCPU;x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <LangVersion>latest</LangVersion>

@@ -381,6 +381,9 @@ INSERT ... ON CONFLICT(stat_date,user_sid) DO UPDATE SET
 ## 11. 部署
 
 - 发布：`scripts\publish.ps1`（内部即 §8.3 的 `dotnet publish` 组合），产物 `dist\KeyMouseCounter.exe`；
+- 图标：`scripts\make-icon.ps1` 按 10 档尺寸（16–256）**原生绘制**生成 `src\KeyMouseCounter.App\app.ico`，
+  csproj 用 `<ApplicationIcon>` 编译进 PE 资源；运行时 `AppIcon.Create()` 用 `Icon.ExtractAssociatedIcon(exe)`
+  取同一套图标（托盘 + 主窗口/设置/导出对话框的 `Form.Icon`），不依赖外部 ico 文件，单文件发布也不丢；
 - 自启：计划任务 `KeyMouseCounter`（`AtLogOn`、`AllowStartIfOnBatteries`、`ExecutionTimeLimit=0`、
   `MultipleInstances=IgnoreNew`、`RestartCount=3/1min`、`LogonType=Interactive`、`RunLevel=Limited`）；
   exe 内置 `--register-autostart/--unregister-autostart`，设置页开关调它们；
@@ -396,7 +399,7 @@ INSERT ... ON CONFLICT(stat_date,user_sid) DO UPDATE SET
 - 单测 `src/KeyMouseCounter.Tests`：T01–T26 覆盖 26 条验收用例，当前 **33 个 Fact 全绿**；
   全部无 UI、无真实钩子（`FakeClock` 注入时间，`AppPaths.RootOverride` 重定向数据目录到临时目录）；
 - 测试程序集禁用并行（`[assembly: CollectionBehavior(DisableTestParallelization = true)]`），因为 `AppPaths.RootOverride` 是静态状态；
-- 手工矩阵 M01–M22 的执行结果与真机截图见 **`docs/screenshots/README.md`**（12 张截图，逐项标注证据或未完成原因）；
+- 手工矩阵 M01–M22 的执行结果与真机截图见 **`docs/screenshots/README.md`**（9 张截图，含图标全尺寸预览，逐项标注证据或未完成原因）；
 - 真机冒烟覆盖：`--count-injected` + 合成按键 → JSONL 只出现 delta 行；删 `data.db` 重启 → `reconcile … full=1` 全量重建；
   单实例唤起、钩子自愈（`GetLastInputInfo` 判定）、计划任务注册路径均在真机走过。
 

@@ -53,6 +53,7 @@ $env:DOTNET_ROOT = 'D:\dotnet8'; $env:PATH = "D:\dotnet8;$env:PATH"
 
 | 截图 | 说明 |
 |---|---|
+| [`00-icon.png`](docs/screenshots/00-icon.png) | 应用图标：16–256px 全尺寸预览（圆角蓝底 + 键帽 + 三根递增柱 + 鼠标指针） |
 | [`01-widget.png`](docs/screenshots/01-widget.png) | 桌面挂件：键盘 / 点击大数字 + 活跃时长与滚轮副行 |
 | [`02-main-today-hour.png`](docs/screenshots/02-main-today-hour.png) | 主窗口「今日·按小时」曲线 + 三张卡片 |
 | [`03-main-today-minute-line.png`](docs/screenshots/03-main-today-minute-line.png) | 「今日·按分钟」全天曲线（13 ms 渲染） |
@@ -202,9 +203,11 @@ KeyMouseCounter.sln
 README.md
 scripts/
   publish.ps1                     # 构建 + 测试 + 单文件发布
+  make-icon.ps1                   # 生成 app.ico（多尺寸）+ docs/screenshots/00-icon.png 预览
   install-autostart.ps1           # 注册计划任务（开机自启）
   uninstall-autostart.ps1         # 注销计划任务（可选 -PurgeData）
 src/KeyMouseCounter.App/          # 主程序（WinForms，单文件）
+  app.ico     应用图标（16/20/24/32/40/48/64/96/128/256，<ApplicationIcon> 编译进 exe）
   Core/       计数引擎、分钟桶、时钟、统计模型
   Input/      低层钩子输入源
   Native/     P/Invoke、热键窗口
@@ -227,6 +230,9 @@ dotnet build -c Release
 dotnet test  -c Release            # 33 passed
 .\scripts\publish.ps1              # 出 dist\KeyMouseCounter.exe
 Start-Process .\dist\KeyMouseCounter.exe
+
+# 重新生成图标（改了配色/造型后跑一次，脚本按尺寸原生绘制，不靠大图缩放）
+.\scripts\make-icon.ps1            # 产出 src\KeyMouseCounter.App\app.ico 与 docs\screenshots\00-icon.png
 
 # 看运行日志
 Get-Content "$env:LOCALAPPDATA\KeyMouseCounter\logs\app-*.log" -Tail 30

@@ -31,6 +31,7 @@ internal sealed class SettingsForm : Form
         _cfg = host.Config;
 
         Text = "设置 · KeyMouseCounter";
+        Icon = AppIcon.Create();
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;

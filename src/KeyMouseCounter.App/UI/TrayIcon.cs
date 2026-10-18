@@ -132,7 +132,10 @@ internal sealed class TrayIcon : IDisposable
     }
 }
 
-/// <summary>程序图标：运行时画一个（不依赖外部 ico 资源，单文件发布更省事）。</summary>
+/// <summary>
+/// 程序图标：直接取 exe 内嵌的 app.ico（&lt;ApplicationIcon&gt; 编译进 PE 资源），
+/// 托盘/标题栏/任务栏与外层 exe 图标保持同一套；取不到再退回系统图标。
+/// </summary>
 internal static class AppIcon
 {
     private static Icon? _cached;
@@ -142,35 +145,22 @@ internal static class AppIcon
         if (_cached is not null) return _cached;
         try
         {
-            using var bmp = new Bitmap(32, 32);
-            using (var g = Graphics.FromImage(bmp))
+            var exe = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exe))
             {
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                g.Clear(Color.Transparent);
-                using var bg = new SolidBrush(Color.FromArgb(0xFF, 0x1E, 0x3A, 0x8A));
-                g.FillEllipse(bg, 0, 0, 31, 31);
-                using var fg = new SolidBrush(Color.FromArgb(0xFF, 0x60, 0xA5, 0xFA));
-                g.FillRectangle(fg, 8, 12, 16, 3);
-                g.FillRectangle(fg, 8, 18, 16, 3);
-                g.FillRectangle(fg, 15, 7, 3, 16);
+                var fromExe = Icon.ExtractAssociatedIcon(exe);
+                if (fromExe is not null)
+                {
+                    _cached = fromExe;
+                    return _cached;
+                }
             }
-            // 关键：HICON 的生命周期独立于 Bitmap。之前直接 Icon.FromHandle(bmp.GetHicon()) 后
-            // bmp 被 using 释放，托盘/标题栏再画这个 HICON 就可能踩到已释放的位图（§15.5 坑）。
-            IntPtr hIcon = bmp.GetHicon();
-            try
-            {
-                using var tmp = Icon.FromHandle(hIcon);
-                _cached = (Icon)tmp.Clone();
-            }
-            finally
-            {
-                NativeMethods.DestroyIcon(hIcon);
-            }
-            return _cached;
         }
         catch
         {
-            return SystemIcons.Application;
+            // 回退系统图标
         }
+        _cached = SystemIcons.Application;
+        return _cached;
     }
 }
