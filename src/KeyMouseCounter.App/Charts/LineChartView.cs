@@ -72,9 +72,10 @@ public sealed class LineChartView : IChartView
             if (d.HighlightIndex is int hi && hi >= 0 && hi < d.Xs.Length)
                 p.Add.VerticalLine(d.Xs[hi], 1.5f, ScottPlot.Color.FromHex("#FBBF24"), ScottPlot.LinePattern.Dashed);
 
+            // 刻度密度随窗口宽度变化；按分钟全天视图要留够整点标签，所以下限 6。
             p.Axes.Bottom.TickGenerator = new CategoryTickGenerator(d.Xs, d.Labels)
             {
-                MaxTickCount = Math.Clamp(_host.Width / 90, 3, 14)
+                MaxTickCount = Math.Clamp(_host.Width / 90, 6, 24)
             };
 
             double yMax = 0;
@@ -83,7 +84,10 @@ public sealed class LineChartView : IChartView
 
             double x0 = d.Xs[0], x1 = d.Xs[^1];
             if (x1 <= x0) { x0 -= 0.5; x1 += 0.5; }
-            p.Axes.SetLimits(x0 - 0.5, x1 + 0.5, 0, yMax * 1.15);
+            // §7.2.1 要求按小时固定 0-23、按分钟固定 0-1439；MultiDay 才按数据范围。
+        double limitLeft = d.XMin ?? (x0 - 0.5);
+        double limitRight = d.XMax ?? (x1 + 0.5);
+        p.Axes.SetLimits(limitLeft, limitRight, 0, yMax * 1.15);
 
             if (!string.IsNullOrEmpty(d.XLabel)) p.XLabel(d.XLabel);
             if (!string.IsNullOrEmpty(d.YLabel)) p.YLabel(d.YLabel);

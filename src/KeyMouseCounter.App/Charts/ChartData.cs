@@ -27,6 +27,9 @@ public sealed class SeriesChartData : ChartData
     public string HighlightText { get; init; } = "";
     /// <summary>Y 轴数值的格式化方式（活跃时长要显示成 5h 58m）。</summary>
     public Func<long, string>? YFormat { get; init; }
+    /// <summary>X 轴固定范围（§7.2.1：按小时 0-23、按分钟 0-1439）；null 表示按数据范围自动缩放。</summary>
+    public double? XMin { get; init; }
+    public double? XMax { get; init; }
     public override bool IsEmpty => Xs.Length == 0;
 }
 

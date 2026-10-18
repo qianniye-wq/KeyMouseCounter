@@ -26,10 +26,43 @@ internal static class PlotTheme
                 LegendFontColor = ToSp(t.Fore),
                 LegendOutlineColor = ToSp(t.Border)
             });
+
+            // 5.0.56 默认字体不含中文字形（截图里中文刻度全是方框），必须显式指定雅黑。
+            // Set 的后三个参数有默认值，省略即可。
+            plot.Font.Set(CjkFontName);
         }
         catch
         {
             // 主题失败不影响主图
+        }
+    }
+
+    /// <summary>中文字体候选：取系统里第一个可用的。</summary>
+    private static string? _cjkFont;
+
+    private static string CjkFontName
+    {
+        get
+        {
+            if (_cjkFont is not null) return _cjkFont;
+            foreach (var name in new[] { "Microsoft YaHei UI", "Microsoft YaHei", "SimHei", "Segoe UI" })
+            {
+                try
+                {
+                    using var f = new System.Drawing.Font(name, 9f);
+                    if (string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _cjkFont = name;
+                        break;
+                    }
+                }
+                catch
+                {
+                    // 换下一个候选
+                }
+            }
+            _cjkFont ??= "Segoe UI";
+            return _cjkFont;
         }
     }
 }
@@ -78,8 +111,11 @@ internal sealed class CategoryTickGenerator : ITickGenerator
                 if (step < 1) step = 1;
 
                 var list = new List<Tick>(max + 2);
+                // 空标签的刻度不提交：热力图 60 列里只有 0/10/20.. 有文字，
+                // 把空刻度也交给 ScottPlot 会让它按"有 60 个刻度"做抽稀，结果只剩 00 和 30。
                 for (int i = 0; i < n; i += step)
-                    list.Add(new Tick(_xs[i], _labels[i]));
+                    if (!string.IsNullOrEmpty(_labels[i]))
+                        list.Add(new Tick(_xs[i], _labels[i]));
                 return list.ToArray();
             }
             catch

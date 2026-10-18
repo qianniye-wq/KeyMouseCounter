@@ -20,10 +20,15 @@
 
 | 线程 | 职责 | 约束 |
 |---|---|---|
-| UI 线程 | WinForms 消息循环，主窗口/挂件/设置/托盘 | 不做 I/O 密集操作；查询走 `Task.Run` 或短查询 |
+| UI 线程（`KMC.UI`，**显式 8 MB 栈**的 STA 线程） | WinForms 消息循环，主窗口/挂件/设置/托盘 | 不做 I/O 密集操作；查询走 `Task.Run` 或短查询 |
 | 钩子线程（`KMC.HookThread`，AboveNormal） | `WH_KEYBOARD_LL` + `WH_MOUSE_LL` 消息循环 | 回调内**只有**读结构体 → 过滤 → 一次极短锁 → `CallNextHookEx`；禁止 I/O / `DateTime.Now` / UI / 跨线程等待（§4.1 硬规则） |
 | 刷盘线程（`System.Threading.Timer`） | 每 `flushIntervalSec`（默认 30s）取快照 → 日志 → 数据库 | 顺序不可颠倒（§6.5） |
 | 看门狗线程（Timer） | 每 15s 检查刷盘是否卡住；每 60s 钩子自愈；每 6h 保留期清理 | 只做判断与重装，不做重活 |
+
+**为什么 UI 线程要显式加大栈**：真机观察到偶发的 `0xc00000fd`（栈溢出），错误模块 `TextShaping.dll`——
+SkiaSharp→DirectWrite 在字体回退路径上的调用链很深，默认 1 MB 的主线程栈余量不足时会直接杀进程，
+托管层（`AppDomain.UnhandledException`）完全拦不到。把消息循环放到 8 MB 栈的 STA 线程上（`Program.UiThreadStackBytes`）
+是成本最低的缓解；同时计划任务配置了 `RestartCount=3` 做兜底。
 
 **为什么钩子单独线程**：低层钩子回调超时（默认 `LowLevelHooksTimeout`）会被系统**静默摘钩**——程序还在但不计数。UI 线程一卡（比如渲染 90 天热力图）就会触发，所以必须隔离。
 
@@ -362,10 +367,12 @@ INSERT ... ON CONFLICT(stat_date,user_sid) DO UPDATE SET
 
 ## 12. 测试
 
-- 单测 `src/KeyMouseCounter.Tests`：T01–T26 覆盖 26 条验收用例，当前 **31 个 Fact 全绿**；
+- 单测 `src/KeyMouseCounter.Tests`：T01–T26 覆盖 26 条验收用例，当前 **32 个 Fact 全绿**；
   全部无 UI、无真实钩子（`FakeClock` 注入时间，`AppPaths.RootOverride` 重定向数据目录到临时目录）；
 - 测试程序集禁用并行（`[assembly: CollectionBehavior(DisableTestParallelization = true)]`），因为 `AppPaths.RootOverride` 是静态状态；
-- 手工矩阵 M01–M22 见文档 §11.2。
+- 手工矩阵 M01–M22 的执行结果与真机截图见 **`docs/screenshots/README.md`**（12 张截图，逐项标注证据或未完成原因）；
+- 真机冒烟覆盖：`--count-injected` + 合成按键 → JSONL 只出现 delta 行；删 `data.db` 重启 → `reconcile … full=1` 全量重建；
+  单实例唤起、钩子自愈（`GetLastInputInfo` 判定）、计划任务注册路径均在真机走过。
 
 ---
 

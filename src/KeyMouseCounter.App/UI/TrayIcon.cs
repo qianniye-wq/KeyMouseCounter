@@ -1,5 +1,6 @@
 using System.Drawing;
 using KeyMouseCounter.Diagnostics;
+using KeyMouseCounter.Native;
 
 namespace KeyMouseCounter.UI;
 
@@ -153,7 +154,18 @@ internal static class AppIcon
                 g.FillRectangle(fg, 8, 18, 16, 3);
                 g.FillRectangle(fg, 15, 7, 3, 16);
             }
-            _cached = Icon.FromHandle(bmp.GetHicon());
+            // 关键：HICON 的生命周期独立于 Bitmap。之前直接 Icon.FromHandle(bmp.GetHicon()) 后
+            // bmp 被 using 释放，托盘/标题栏再画这个 HICON 就可能踩到已释放的位图（§15.5 坑）。
+            IntPtr hIcon = bmp.GetHicon();
+            try
+            {
+                using var tmp = Icon.FromHandle(hIcon);
+                _cached = (Icon)tmp.Clone();
+            }
+            finally
+            {
+                NativeMethods.DestroyIcon(hIcon);
+            }
             return _cached;
         }
         catch

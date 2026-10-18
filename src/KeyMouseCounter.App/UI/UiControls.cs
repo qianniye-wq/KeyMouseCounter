@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
+using KeyMouseCounter.Native;
 
 namespace KeyMouseCounter.UI;
 
@@ -64,6 +65,22 @@ internal static class UiText
 /// <summary>圆角矩形工具 + 圆角自绘面板。</summary>
 internal static class UiGfx
 {
+    /// <summary>Win10/11 深色标题栏（DWMWA_USE_IMMERSIVE_DARK_MODE=20；老版本读 19）。</summary>
+    public static void ApplyDarkTitleBar(Form form)
+    {
+        if (form is null || form.Handle == IntPtr.Zero) return;
+        try
+        {
+            int dark = Theme.Kind == ThemeKind.Dark ? 1 : 0;
+            if (NativeMethods.DwmSetWindowAttribute(form.Handle, 20, ref dark, sizeof(int)) != 0)
+                NativeMethods.DwmSetWindowAttribute(form.Handle, 19, ref dark, sizeof(int));
+        }
+        catch
+        {
+            // 老系统没有这个属性，忽略
+        }
+    }
+
     public static GraphicsPath RoundRect(Rectangle r, int radius)
     {
         var p = new GraphicsPath();
@@ -450,10 +467,13 @@ internal sealed class StatCard : CardPanel
         {
             Text = "0",
             Dock = DockStyle.Fill,
-            Font = Theme.Font(24f, FontStyle.Bold),
+            Font = Theme.NumberFont(22f),
             ForeColor = Theme.Current.Fore,
             TextAlign = ContentAlignment.MiddleLeft,
-            BackColor = Color.Transparent
+            BackColor = Color.Transparent,
+            // GDI(TextRenderer) 在这台机器的高 DPI 下会把大号数字画变形（4/5 走形且倾斜），
+            // 改用 GDI+ 绘制（UseCompatibleTextRendering）后字形正常。
+            UseCompatibleTextRendering = true
         };
         _sub = new Label
         {

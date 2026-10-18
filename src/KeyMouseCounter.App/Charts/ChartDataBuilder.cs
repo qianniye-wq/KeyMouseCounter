@@ -51,8 +51,9 @@ public static class ChartDataBuilder
             Labels = labels,
             AsBar = asBar,
             XLabel = "小时",
-            YLabel = metric.DisplayName(),
             SeriesName = metric.DisplayName(),
+            XMin = 0,
+            XMax = 23,
             HighlightIndex = highlightHour,
             HighlightText = "当前",
             YFormat = v => ValueFormat.Metric(v, metric),
@@ -71,18 +72,17 @@ public static class ChartDataBuilder
         if (dict.Count == 0)
             return new SeriesChartData { EmptyText = "今天还没有记录", YFormat = v => ValueFormat.Metric(v, metric) };
 
-        int first = dict.Keys.Min();
-        int last = dict.Keys.Max();
-        int n = last - first + 1;
+        // §7.2.1：按分钟视图 X 轴固定 0-1439，所以整天的 1440 个点都要有（没数据的分钟补 0），
+        // 刻度也才能按整点显示。
+        int n = 1440;
         var xs = new double[n];
         var ys = new double[n];
         var labels = new string[n];
         for (int i = 0; i < n; i++)
         {
-            int m = first + i;
-            xs[i] = m;
-            labels[i] = $"{m / 60:00}:{m % 60:00}";
-            ys[i] = dict.TryGetValue(m, out long v) ? v : 0;
+            xs[i] = i;
+            labels[i] = $"{i / 60:00}:{i % 60:00}";
+            ys[i] = dict.TryGetValue(i, out long v) ? v : 0;
         }
         return new SeriesChartData
         {
@@ -91,8 +91,9 @@ public static class ChartDataBuilder
             Labels = labels,
             AsBar = asBar,
             XLabel = "时间",
-            YLabel = metric.DisplayName(),
             SeriesName = metric.DisplayName(),
+            XMin = 0,
+            XMax = 1439,
             HighlightIndex = highlightMinute,
             HighlightText = "当前",
             YFormat = v => ValueFormat.Metric(v, metric),
@@ -122,7 +123,6 @@ public static class ChartDataBuilder
             Labels = labels,
             AsBar = asBar,
             XLabel = "日期",
-            YLabel = metric.DisplayName(),
             SeriesName = metric.DisplayName(),
             YFormat = v => ValueFormat.Metric(v, metric),
             EmptyText = "这段时间没有记录"
@@ -225,6 +225,27 @@ public static class ChartDataBuilder
                 _ => ValueFormat.Count((long)val!)
             },
             EmptyText = "今天还没有记录"
+        };
+    }
+
+    /// <summary>今日·按小时明细：24 行（§7.2.3 表格在"按小时"标签下的补充形态）。</summary>
+    public static TableChartData HourTable(IReadOnlyList<HourPoint> hours, Metric metric)
+    {
+        var rows = new List<object?[]>();
+        foreach (var h in hours)
+            rows.Add(new object?[] { h.Hour, h.Key, h.Click, h.Wheel, h.ActiveSeconds });
+        return new TableChartData
+        {
+            Headers = new[] { "时间", "键盘按键", "鼠标点击", "滚轮", "活跃时长" },
+            Rows = rows,
+            ColumnWidths = new[] { 90, 120, 120, 100, 120 },
+            Format = (col, val) => col switch
+            {
+                0 => FormatMinute((int)val! * 60),
+                4 => ValueFormat.Duration((long)val!),
+                _ => ValueFormat.Count((long)val!)
+            },
+            EmptyText = "今日还没有记录"
         };
     }
 

@@ -4,6 +4,7 @@ using KeyMouseCounter.Charts;
 using KeyMouseCounter.Config;
 using KeyMouseCounter.Core;
 using KeyMouseCounter.Diagnostics;
+using KeyMouseCounter.Native;
 using KeyMouseCounter.Services;
 using KeyMouseCounter.Storage;
 
@@ -138,6 +139,7 @@ internal sealed class MainForm : Form
         ForeColor = Theme.Current.Fore;
         ApplyControlColors(this);
         _tableView.ApplyTheme();
+        ApplyDarkTitleBar();
         Invalidate(true);
         _dirty = true;
     }
@@ -199,7 +201,7 @@ internal sealed class MainForm : Form
         _title.ForeColor = Theme.Current.Fore;
         _title.AutoSize = false;
         _title.Dock = DockStyle.Left;
-        _title.Width = 148;
+        _title.Width = 216;
         _title.TextAlign = ContentAlignment.MiddleLeft;
 
         _tabs.SetItems("今日·按小时", "今日·按分钟", "多日");
@@ -456,12 +458,16 @@ internal sealed class MainForm : Form
 
     private static DateOnly MinDay(DateOnly a, DateOnly b) => a < b ? a : b;
 
+    /// <summary>Win10/11 深色标题栏（DWMWA_USE_IMMERSIVE_DARK_MODE=20；Win10 早期版本读的是 19）。</summary>
+    private void ApplyDarkTitleBar() => UiGfx.ApplyDarkTitleBar(this);
+
     private void OnLoaded(object? sender, EventArgs e)
     {
         _day = MinDay(_day, DateOnly.FromDateTime(DateTime.Today));
         _tabs.SelectedIndex = (int)_startTab;
         _viewTabs.SelectedIndex = (int)_view;
         SyncToolbarToTab();
+        ApplyDarkTitleBar();
         _timer.Start();
         RefreshData(flushFirst: true);
     }
@@ -784,10 +790,25 @@ internal sealed class MainForm : Form
             long v = _metric.Value(hours[h].Key, hours[h].Click, hours[h].Wheel, hours[h].ActiveSeconds);
             if (v > best) { best = v; peakHour = hours[h].Hour; }
         }
-        var data = ChartDataBuilder.HourSeries(hours, _metric, peakHour < 0 ? null : peakHour, asBar: _asBar.Checked);
+        // 按小时下的"表格"没有独立规格（§7.2.3 只定义了按分钟/多日），
+        // 这里给 24 行小时明细；曲线/热力图分支保持不变（§7.2.2 规定按小时固定柱状图，不画热力图）。
+        ChartData data;
+        int rowCount = 0;
+        if (_view == ViewKind.Table)
+        {
+            var table = ChartDataBuilder.HourTable(hours, _metric);
+            rowCount = table.Rows.Count;
+            data = table;
+        }
+        else
+        {
+            data = ChartDataBuilder.HourSeries(hours, _metric, peakHour < 0 ? null : peakHour, asBar: _asBar.Checked);
+        }
         ShowView(data);
         SetSummary(summary);
-        _rowCount.Text = _day == DateOnly.FromDateTime(DateTime.Today) ? "今日 24 小时" : $"{_day:MM-dd} 24 小时";
+        _rowCount.Text = _view == ViewKind.Table
+            ? $"{rowCount} 行"
+            : (_day == DateOnly.FromDateTime(DateTime.Today) ? "今日 24 小时" : $"{_day:MM-dd} 24 小时");
     }
 
     private async Task RenderTodayMinuteAsync(CancellationToken ct)

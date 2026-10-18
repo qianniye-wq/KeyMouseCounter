@@ -36,6 +36,7 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         ShowInTaskbar = false;
+        HandleCreated += (_, _) => UiGfx.ApplyDarkTitleBar(this);
         ClientSize = new Size(660, 470);
         BackColor = Theme.Current.Window;
         ForeColor = Theme.Current.Fore;

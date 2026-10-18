@@ -114,4 +114,8 @@ internal static class NativeMethods
         if (IntPtr.Size == 8) SetWindowLongPtr64(hWnd, nIndex, new IntPtr(value));
         else SetWindowLong32(hWnd, nIndex, value);
     }
+
+    /// <summary>释放 GetHicon() 得到的图标句柄（不释放会漏 GDI 对象）。</summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern bool DestroyIcon(IntPtr hIcon);
 }

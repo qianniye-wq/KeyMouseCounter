@@ -207,7 +207,7 @@ internal sealed class AppHost : ApplicationContext
         // 10) 钩子
         StartHooks();
 
-        // 11) 全局热键
+        // 11) 全局热键（注册成功/失败都由 HotKeyWindow 统一记日志，这里不重复打）
         _hotkeys = new HotKeyWindow();
         _hotkeys.HotKeyPressed += OnHotkey;
         if (!string.IsNullOrWhiteSpace(_config.Widget.Hotkey))
@@ -245,7 +245,7 @@ internal sealed class AppHost : ApplicationContext
         _retentionTimer = new System.Threading.Timer(_ => SafeWatch(WatchRetention), null,
             TimeSpan.FromHours(6), TimeSpan.FromHours(6));
 
-        TryRegisterHotkey();
+        // 全局热键已在第 11 步注册（TryRegisterHotkey 只服务于设置页改键/重新注册，这里不再重复调用）
 
         // 16) 挂件
         if (_config.Widget.Enabled && !_options.NoWidget) ShowWidget(firstShow: true);

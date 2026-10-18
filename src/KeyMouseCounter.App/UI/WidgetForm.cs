@@ -67,7 +67,9 @@ internal sealed class WidgetForm : Form
                  ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
 
         ApplySizeAndFont();
-        ApplyPosition(cfg.Widget.X, cfg.Widget.Y, firstRun: true);
+        // 构造时先按配置摆放（真实显示在 ShowWidget 里再确认一次）；firstRun 只用于"第一次启用"，
+        // 这里传 false，避免构造期把用户保存的位置覆盖成 (40,40)。
+        ApplyPosition(cfg.Widget.X, cfg.Widget.Y, firstRun: false);
         ApplyOpacity(cfg.Widget.Opacity, save: false);
         ApplyClickThrough(cfg.Widget.ClickThrough);
 
@@ -161,7 +163,7 @@ internal sealed class WidgetForm : Form
         float pad = Width * 0.055f;
         float colW = (Width - pad * 2) / 2f;
 
-        using (var big = Theme.Font(BigSize, FontStyle.Bold))
+        using (var big = Theme.NumberFont(BigSize, FontStyle.Bold))
         using (var label = Theme.Font(LabelSize))
         using (var small = Theme.Font(SmallSize))
         {
@@ -351,7 +353,9 @@ internal sealed class WidgetForm : Form
     {
         _cfg.Widget.Enabled = true;
         ApplySizeAndFont();
-        ApplyPosition(_cfg.Widget.X, _cfg.Widget.Y, firstRun: firstFade);
+        // firstFade 只控制淡入；位置要沿用配置里的（越界才由 WidgetGeometry 归位），
+        // 否则每次启动都会把用户拖过的挂件拽回 (40,40)。
+        ApplyPosition(_cfg.Widget.X, _cfg.Widget.Y, firstRun: false);
         ApplyOpacity(_cfg.Widget.Opacity, save: false);
         Show();
         _tick.Start();

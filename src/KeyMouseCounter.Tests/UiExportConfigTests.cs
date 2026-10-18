@@ -164,3 +164,24 @@ public sealed class UiExportConfigTests
         Assert.True(File.Exists(AppPaths.ConfigPath));             // 新配置已写回
     }
 }
+
+/// <summary>按小时标签下的表格（§7.2.3 的补充形态）：24 行、时刻格式化。</summary>
+public sealed class HourTableTests
+{
+    [Fact]
+    public void HourTable_Has24Rows_AndFormatsHourLabels()
+    {
+        var hours = Enumerable.Range(0, 24)
+            .Select(h => new HourPoint(h, h * 10, h, h * 2, h * 60))
+            .ToList();
+
+        var table = ChartDataBuilder.HourTable(hours, Metric.Key);
+
+        Assert.Equal(24, table.Rows.Count);
+        Assert.Equal(new[] { "时间", "键盘按键", "鼠标点击", "滚轮", "活跃时长" }, table.Headers);
+        Assert.Equal("08:00", table.Format!(0, table.Rows[8][0]));
+        Assert.Equal("80", table.Format!(1, table.Rows[8][1]));
+        Assert.Equal("1,800", table.Format!(1, 1800L));
+        Assert.Equal("30m", table.Format!(4, 1800L));
+    }
+}

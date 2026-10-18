@@ -89,4 +89,15 @@ public static class Theme
         try { return new Font("Microsoft YaHei UI", size, style); }
         catch { return new Font(FontFamily.GenericSansSerif, size, style); }
     }
+
+    /// <summary>大数字专用等宽字体（§5.9 要求"等宽数字"；雅黑的大号数字在高 DPI 下会走形）。</summary>
+    public static Font NumberFont(float size, FontStyle style = FontStyle.Bold)
+    {
+        try { return new Font("Consolas", size, style); }
+        catch
+        {
+            try { return new Font(FontFamily.GenericMonospace, size, style); }
+            catch { return Font(size, style); }
+        }
+    }
 }
