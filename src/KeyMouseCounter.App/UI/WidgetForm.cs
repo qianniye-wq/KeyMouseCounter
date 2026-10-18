@@ -123,6 +123,7 @@ internal sealed class WidgetForm : Form
 
     private void ApplyRoundedCorners()
     {
+        if (Handle == IntPtr.Zero) return;
         try
         {
             // Win11 原生圆角（§5.9 / §15.4 圆角观感）
@@ -131,10 +132,18 @@ internal sealed class WidgetForm : Form
                 return;
         }
         catch { }
+
+        // Win10 兜底：直接用原生 SetWindowRgn。
+        // 注意：**绝对不要**写 `using var rgn = Region.FromHrgn(...); Region = rgn;`——
+        // Control.Region 持有的是同一个 Region 实例，using 结束时它被 Dispose，
+        // 之后窗口句柄重建时 WinForms 会在 OnHandleCreated 里 SetRegion → Region.GetHrgn
+        // 抛 ArgumentException「Parameter is not valid」（真机表现为启动即弹 JIT 错误框）。
         try
         {
-            using var rgn = System.Drawing.Region.FromHrgn(NativeMethods.CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 14, 14));
-            Region = rgn;
+            var rgn = NativeMethods.CreateRoundRectRgn(0, 0, Width + 1, Height + 1, 14, 14);
+            if (rgn == IntPtr.Zero) return;
+            // SetWindowRgn 成功后 HRGN 归系统所有，不能再 DeleteObject；失败才自己释放
+            if (NativeMethods.SetWindowRgn(Handle, rgn, true) == 0) NativeMethods.DeleteObject(rgn);
         }
         catch { }
     }
@@ -509,7 +518,10 @@ internal sealed class WidgetForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        if (IsHandleCreated) ApplyClickThroughStyle();
+        if (!IsHandleCreated) return;
+        ApplyClickThroughStyle();
+        // 句柄可能被重建（改 ExStyle / DPI 变化），圆角形状要在新句柄上重新应用一次
+        ApplyRoundedCorners();
     }
 
     private void ApplyClickThroughStyle()

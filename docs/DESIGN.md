@@ -313,6 +313,32 @@ INSERT ... ON CONFLICT(stat_date,user_sid) DO UPDATE SET
 运行日志：`logs\app-yyyyMMdd.log`，格式 `[yyyy-MM-dd HH:mm:ss.fff][LEVEL] msg`，单文件 ≤2MB 保留 3 个；
 **禁止输出 vkCode 序列、窗口标题、输入文本**。
 
+### 8.1 已修缺陷：启动即弹「参数无效」对话框
+
+现象：程序启动瞬间弹 WinForms JIT 异常框 `System.ArgumentException: Parameter is not valid.`，
+栈为 `System.Drawing.Region.GetHrgn` ← `PInvoke.RegionScope..ctor` ← `Control.SetRegion` ←
+`Control.OnHandleCreated` ← `WidgetForm.OnHandleCreated`；点「继续」后程序一切正常。
+
+根因：`WidgetForm.ApplyRoundedCorners` 早期写法是
+`using var rgn = Region.FromHrgn(CreateRoundRectRgn(...)); Region = rgn;`。
+`Region` 被 `using` 立刻 Dispose，而 `Control.Region` 只是**持有引用**；等 WinForms 在
+`OnHandleCreated` 里 `SetRegion` 时再去取 HGDI 句柄 → 句柄已失效 → `ArgumentException`。
+即「一次性代码在异常情况下才暴露」的典型资源所有权错误。
+
+修法（`WidgetForm.cs`）：
+- 不再把托管 `Region` 交给控件；改用原生 `SetWindowRgn(Handle, hrgn, redraw:true)`，
+  成功后 HRGN 归系统所有（不得 `DeleteObject`），失败才自己 `DeleteObject` 回收；失败吞掉不影响启动。
+- 调用点仍放在 `OnHandleCreated`（圆角/毛玻璃都要有效 HWND，且 DPI/ExStyle 变化重建句柄后能重设）。
+- `Program.cs` 补上 §9.2 要求的全局兜底：`Application.SetUnhandledExceptionMode(CatchException)` +
+  `Application.ThreadException` / `AppDomain.UnhandledException` / `TaskScheduler.UnobservedTaskException`
+  全部写日志（UI 线程异常不会让程序静默退出）。原代码没有兜底，所以才会弹系统 JIT 对话框。
+- 回归测试：`KeyMouseCounter.Tests/WidgetFormTests.WidgetForm_HandleRecreation_DoesNotThrow`
+  （建 `WidgetForm` → 取 `Handle` → `ToggleClickThrough()` 触发真实句柄重建 → 再取 `Handle`）。
+  该测试在旧写法下必现同样异常，修复后通过。
+
+**经验**：给 `Control.Region` / `Control.BackgroundImage` / `Font` 等「控件只持引用」的属性赋值时，
+不要立刻 `Dispose` 源对象；能交给系统的原生资源（HRGN/HBITMAP/HFONT）优先走 `SetWindowRgn` 这类所有权转移 API。
+
 ---
 
 ## 9. 性能预算与实测
@@ -367,7 +393,7 @@ INSERT ... ON CONFLICT(stat_date,user_sid) DO UPDATE SET
 
 ## 12. 测试
 
-- 单测 `src/KeyMouseCounter.Tests`：T01–T26 覆盖 26 条验收用例，当前 **32 个 Fact 全绿**；
+- 单测 `src/KeyMouseCounter.Tests`：T01–T26 覆盖 26 条验收用例，当前 **33 个 Fact 全绿**；
   全部无 UI、无真实钩子（`FakeClock` 注入时间，`AppPaths.RootOverride` 重定向数据目录到临时目录）；
 - 测试程序集禁用并行（`[assembly: CollectionBehavior(DisableTestParallelization = true)]`），因为 `AppPaths.RootOverride` 是静态状态；
 - 手工矩阵 M01–M22 的执行结果与真机截图见 **`docs/screenshots/README.md`**（12 张截图，逐项标注证据或未完成原因）；

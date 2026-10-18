@@ -33,6 +33,7 @@ internal static class Program
     private static int RunUi(CommandLineOptions options)
     {
         ApplicationConfiguration.Initialize();
+        InstallExceptionHandlers();
 
         AppHost? host = null;
         try
@@ -67,5 +68,35 @@ internal static class Program
             try { host?.Shutdown(); } catch (Exception ex) { Diagnostics.Log.Error("shutdown error", ex); }
             Diagnostics.Log.Shutdown();
         }
+    }
+
+    /// <summary>
+    /// 全局异常兜底（文档 §9.2）：UI 线程异常只记日志、不弹 .NET 的「JIT 调试」对话框
+    /// （用户看到那种窗体只会以为程序坏了）；后台任务异常同理不留未观察状态。
+    /// 必须在创建任何窗口之前装好。
+    /// </summary>
+    private static void InstallExceptionHandlers()
+    {
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+
+        Application.ThreadException += (_, e) =>
+        {
+            // 记日志即可：统计与刷盘都有各自的兜底，UI 单次绘制失败不应终止进程
+            Diagnostics.Log.Error("UI 线程未处理异常", e.Exception);
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                Diagnostics.Log.Error($"未处理异常（IsTerminating={e.IsTerminating}）", ex);
+            else
+                Diagnostics.Log.Error($"未处理异常（IsTerminating={e.IsTerminating}）：{e.ExceptionObject}");
+        };
+
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Diagnostics.Log.Error("未观察的任务异常", e.Exception);
+            e.SetObserved();
+        };
     }
 }

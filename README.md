@@ -19,7 +19,7 @@ Windows 10/11 桌面小工具：**只统计次数，不记录任何内容**。
 # 0) 确认 SDK（若 command not found，见下方"没有 SDK 时"）
 dotnet --version          # 期望 8.0.x
 
-# 1) 构建 + 跑单元测试（应 32/32 全绿）
+# 1) 构建 + 跑单元测试（应 33/33 全绿）
 dotnet build -c Release
 dotnet test  -c Release
 
@@ -43,7 +43,7 @@ $env:DOTNET_ROOT = 'D:\dotnet8'; $env:PATH = "D:\dotnet8;$env:PATH"
 # 之后 dotnet 命令即可用；scripts\publish.ps1 会自动探测 DOTNET_ROOT 与 D:\dotnet8
 ```
 
-> 本项目验证环境：Windows 10/11 x64，SDK **8.0.426**（装于 `D:\dotnet8`），xUnit 32 项单测全绿。
+> 本项目验证环境：Windows 10/11 x64，SDK **8.0.426**（装于 `D:\dotnet8`），xUnit 33 项单测全绿。
 
 ---
 
@@ -158,6 +158,11 @@ $env:DOTNET_ROOT = 'D:\dotnet8'; $env:PATH = "D:\dotnet8;$env:PATH"
 - 钩子可能被系统静默摘除 → 程序每 60s 自愈检测，系统有输入而计数为 0 时自动重装；
 - 分钟归属受 200ms 时钟缓存影响，分钟边界附近极少数事件可能归到相邻分钟（≤200ms 误差）；
 - 日志被手工删除时重建会丢该日数据（数据库仍完整时不受影响）；日志为权威源，`log_gap` 标记的日期重建时跳过。
+- **已修复（v2.3.0 交付后补丁）**：早期版本启动瞬间会弹 `System.ArgumentException: Parameter is not valid.`
+  （`Region.GetHrgn` ← `Control.SetRegion` ← `WidgetForm.OnHandleCreated`），点「继续」后功能正常。
+  根因是圆角代码把已被 `Dispose` 的托管 `Region` 赋给 `Control.Region`，`OnHandleCreated` 再取 HGDI 句柄时已失效；
+  现改为原生 `SetWindowRgn`（所有权转移给系统），并补上全局异常兜底 + 回归测试
+  `WidgetFormTests.WidgetForm_HandleRecreation_DoesNotThrow`。详见 `docs/DESIGN.md` §8.1。
 - **个别机器上曾观察到启动后若干秒进程被系统终止**（事件查看器 `Application Error 1000`，
   错误模块 `TextShaping.dll`，异常码 `0xc00000fd` = 栈溢出）。该崩溃发生在 SkiaSharp/DirectWrite 的
   字体回退调用链里，托管层无法捕获；已把 WinForms 消息循环放到 **8 MB 栈**的专用 STA 线程上运行
@@ -184,7 +189,7 @@ src/KeyMouseCounter.App/          # 主程序（WinForms，单文件）
   Services/   刷盘、保留期、查询、自启动、单实例
   Charts/     曲线 / 热力图 / 表格（ScottPlot）
   UI/         主窗口、挂件、设置、托盘、对话框
-src/KeyMouseCounter.Tests/        # xUnit 单测（T01–T26，当前 31 个 Fact 全绿）
+src/KeyMouseCounter.Tests/        # xUnit 单测（T01–T26 + 句柄重建回归，当前 33 个 Fact 全绿）
 docs/DESIGN.md                    # 设计说明（v2.3）
 docs/CONTRACTS.md                 # 模块接口契约
 docs/screenshots/                 # 真机截图 + §11.2 手工验收矩阵（M01–M22）留证
@@ -196,7 +201,7 @@ docs/screenshots/                 # 真机截图 + §11.2 手工验收矩阵（M
 
 ```powershell
 dotnet build -c Release
-dotnet test  -c Release            # 32 passed
+dotnet test  -c Release            # 33 passed
 .\scripts\publish.ps1              # 出 dist\KeyMouseCounter.exe
 Start-Process .\dist\KeyMouseCounter.exe
 

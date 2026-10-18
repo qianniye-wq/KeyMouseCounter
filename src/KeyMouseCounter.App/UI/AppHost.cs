@@ -250,10 +250,17 @@ internal sealed class AppHost : ApplicationContext
         // 16) 挂件
         if (_config.Widget.Enabled && !_options.NoWidget) ShowWidget(firstShow: true);
 
-        // 17) 主窗口
-        ShowMain();
-
-        if (_config.Ui.StartMinimized) _main!.Hide();
+        // 17) 主窗口（startMinimized 时只创建不显示，§7.1）
+        //     注意不要「先 Show 再 Hide」——那会在启动瞬间闪一下任务栏与窗口。
+        if (_config.Ui.StartMinimized)
+        {
+            _main ??= new MainForm(this);
+            _main.ReloadConfig();
+        }
+        else
+        {
+            ShowMain();
+        }
         Log.Info("初始化完成，开始统计。");
     }
 

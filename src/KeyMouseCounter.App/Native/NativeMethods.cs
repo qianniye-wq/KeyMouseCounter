@@ -72,6 +72,9 @@ internal static class NativeMethods
     [DllImport("gdi32.dll")]
     internal static extern IntPtr CreateRoundRectRgn(int l, int t, int r, int b, int w, int h);
 
+    [DllImport("gdi32.dll", SetLastError = true)]
+    internal static extern bool DeleteObject(IntPtr hObject);
+
     // ── 热键 ──
     internal const int WM_HOTKEY = 0x0312;
     internal const uint MOD_ALT = 0x1, MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, MOD_WIN = 0x8, MOD_NOREPEAT = 0x4000;
